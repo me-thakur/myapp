@@ -22,6 +22,13 @@ def check_database():
 class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
+        if self.path == "/health":
+            self.send_response(200)
+            self.send_header("Content-type", "text/plain")
+            self.end_headers()
+            self.wfile.write(b"OK")
+            return
+
         db_status = check_database()
 
         if db_status:
@@ -36,7 +43,6 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
         self.wfile.write(message.encode())
-
 
 server = HTTPServer(("0.0.0.0", 8080), Handler)
 
