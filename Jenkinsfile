@@ -15,6 +15,15 @@ pipeline {
                 sh 'docker run -d --name myapp-jenkins-test --network devops-net -p 8082:8080 myapp:jenkins-test'
             }
         }
-
+       
+       stage('Test Application'){
+           steps { 
+               sh '''
+	       docker run --rm \
+	       --network devops-net \
+ 	       python:3.12-slim \
+	       python3 -c "import urllib.request; print(urllib.request.urlopen('http://myapp-jenkins-test:8080').read().decode())"
+	       '''
+	 }
     }
 }
