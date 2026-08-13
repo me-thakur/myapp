@@ -24,6 +24,7 @@ pipeline {
  	       python:3.12-slim \
 	       python3 -c "import urllib.request; print(urllib.request.urlopen('http://myapp-jenkins-test:8080').read().decode())"
 	       '''
-	 }
-    }
+	   }
+        }
+     }
 }
