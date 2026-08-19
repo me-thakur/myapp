@@ -26,5 +26,20 @@ pipeline {
                 '''
             }
         }
+        stage('Test AWS Authentication') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                    credentialsId: 'jenkins-ecr-aws',
+                    usernameVariable: 'AWS_ACCESS_KEY_ID',
+                    passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
+                ]) {
+                    sh '''
+                    aws sts get-caller-identity
+                    '''
+                }
+            }
+        }
     }
 }
