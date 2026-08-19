@@ -41,5 +41,22 @@ pipeline {
                 }
             }
         }
+	stage('Login to ECR') {
+    	    steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'jenkins-ecr-aws',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                   )
+               ]) {
+                   sh '''
+                   aws ecr get-login-password --region us-east-1 | \
+                   docker login --username AWS --password-stdin \
+                   361646636271.dkr.ecr.us-east-1.amazonaws.com
+                   '''
+                }
+            }
+        }
     }
 }
