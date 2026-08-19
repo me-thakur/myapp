@@ -58,5 +58,24 @@ pipeline {
                 }
             }
         }
+	stage('Push Image to ECR') {
+    	    steps {
+        	withCredentials([
+            	    usernamePassword(
+                	credentialsId: 'jenkins-ecr-aws',
+                	usernameVariable: 'AWS_ACCESS_KEY_ID',
+                	passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                   )
+               ]) {
+            	  sh '''
+                  docker tag myapp:build-${BUILD_NUMBER} \
+                  361646636271.dkr.ecr.us-east-1.amazonaws.com/myapp:build-${BUILD_NUMBER}
+
+                  docker push \
+                  361646636271.dkr.ecr.us-east-1.amazonaws.com/myapp:build-${BUILD_NUMBER}
+                  '''
+               }
+           }
+        }
     }
 }
