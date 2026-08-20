@@ -5,7 +5,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
 		sh '''
-		docker pull  --platform linux/amd python:3.12-slim
+		docker pull  --platform linux/amd64 python:3.12-slim
 		docker build \
 	         --platform linux/amd64 \
 		 --no-cache \
