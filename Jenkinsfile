@@ -2,10 +2,15 @@ pipeline {
     agent any
 
     stages {
+	stage('Check Docker buildx') {
+	    steps {
+		sh 'docker buildx version'
+	    }
+	}
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build --platform linux/amd64 -t myapp:build-${BUILD_NUMBER} .'
+                sh 'docker buildx build --platform linux/amd64 --load -t myapp:build-${BUILD_NUMBER} .'
             }
         }
 
