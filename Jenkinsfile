@@ -10,7 +10,13 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker buildx build --platform linux/amd64 --load -t myapp:build-${BUILD_NUMBER} .'
+		sh '''
+		docker pull  --platform linux/amd python:3.12-slim
+		docker build \
+	         --platform linux/amd64 \
+		 --no-cache \
+		 -t myapp:build-${BUILD_NUMBER} .
+		'''
             }
         }
 
