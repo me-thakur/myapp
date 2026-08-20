@@ -2,12 +2,6 @@ pipeline {
     agent any
 
     stages {
-	stage('Check Docker buildx') {
-	    steps {
-		sh 'docker buildx version'
-	    }
-	}
-
         stage('Build Docker Image') {
             steps {
 		sh '''
