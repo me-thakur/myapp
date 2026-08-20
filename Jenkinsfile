@@ -5,7 +5,7 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t myapp:build-${BUILD_NUMBER} .'
+                sh 'docker build --platform linux/amd64 -t myapp:build-${BUILD_NUMBER} .'
             }
         }
 
