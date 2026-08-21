@@ -56,9 +56,11 @@ pipeline {
                     echo "Building Docker Image"
                     echo "======================================"
 
-                    docker build \
+                    docker buildx build \
                         --platform linux/amd64 \
-                        -t myapp:build-${BUILD_NUMBER} .
+                        -t myapp:build-${BUILD_NUMBER} \
+			--load \
+			.
                 '''
             }
         }
