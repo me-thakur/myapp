@@ -19,6 +19,8 @@ pipeline {
 
         RDS_ENDPOINT = 'myapp-db.cexc2s0ku32a.us-east-1.rds.amazonaws.com'
         RDS_PORT = '3306'
+
+        ALB_NAME = 'myapp-alb'
     }
 
     stages {
@@ -87,7 +89,7 @@ pipeline {
                         echo "======================================"
 
                         aws sts get-caller-identity
-                    '''
+                '''
                 }
             }
         }
@@ -338,6 +340,58 @@ pipeline {
                 }
             }
         }
+
+        stage('Verify Application through ALB') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'jenkins-ecr-aws',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
+                ]) {
+                    sh '''
+                        echo "======================================"
+                        echo "Verifying Application through ALB"
+                        echo "======================================"
+
+                        ALB_DNS=$(aws elbv2 describe-load-balancers \
+                            --names ${ALB_NAME} \
+                            --region ${AWS_REGION} \
+                            --query 'LoadBalancers[0].DNSName' \
+                            --output text)
+
+                        echo "ALB DNS:"
+                        echo "${ALB_DNS}"
+
+                        echo "--------------------------------------"
+                        echo "Testing /health"
+                        echo "--------------------------------------"
+
+                        for i in $(seq 1 12); do
+
+                            RESPONSE=$(curl -s \
+                                --max-time 5 \
+                                "http://${ALB_DNS}/health" || true)
+
+                            echo "Attempt ${i}: ${RESPONSE}"
+
+                            if [ "${RESPONSE}" = "OK" ]; then
+                                echo "Application health check PASSED."
+                                exit 0
+                            fi
+
+                            echo "Application not ready yet. Waiting 10 seconds..."
+                            sleep 10
+
+                        done
+
+                        echo "Application health check FAILED."
+                        exit 1
+                    '''
+                }
+            }
+        }
     }
 
     post {
@@ -347,6 +401,7 @@ pipeline {
             echo "PIPELINE SUCCESS"
             echo "======================================"
             echo "Application successfully deployed to ECS."
+            echo "ALB health check passed."
         }
 
         failure {
