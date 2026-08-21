@@ -1,67 +1,56 @@
 pipeline {
+
     agent any
 
     environment {
-        // ==========================================
-        // AWS
-        // ==========================================
 
+        // ==============================
+        // AWS
+        // ==============================
         AWS_REGION = 'us-east-1'
         AWS_ACCOUNT_ID = '361646636271'
 
-        // ==========================================
+        // ==============================
         // ECR
-        // ==========================================
-
+        // ==============================
         ECR_REPOSITORY = 'myapp'
-
         ECR_REGISTRY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-
         IMAGE_URI = "${ECR_REGISTRY}/${ECR_REPOSITORY}:build-${BUILD_NUMBER}"
 
-        // ==========================================
+        // ==============================
         // ECS
-        // ==========================================
-
+        // ==============================
         ECS_CLUSTER = 'myapp-cluster'
-
         ECS_SERVICE = 'myapp-task-service'
-
         ECS_TASK_FAMILY = 'myapp-task'
 
-        // ==========================================
-        // ECS IAM ROLES
-        // ==========================================
-
         ECS_TASK_ROLE = 'arn:aws:iam::361646636271:role/myappECSTaskRole'
-
         ECS_EXECUTION_ROLE = 'arn:aws:iam::361646636271:role/ecsTaskExecutionRole'
 
-        // ==========================================
+        // ==============================
         // RDS
-        // ==========================================
-
+        // ==============================
         RDS_ENDPOINT = 'myapp-db.cexc2s0ku32a.us-east-1.rds.amazonaws.com'
-
         RDS_PORT = '3306'
 
-        // ==========================================
+        // ==============================
         // ALB
-        // ==========================================
-
+        // ==============================
         ALB_NAME = 'myapp-alb'
-
-        ALB_HEALTH_PATH = '/health'
+        HEALTH_PATH = '/health'
     }
+
 
     stages {
 
-        // =========================================================
+        // ============================================================
         // 1. BUILD DOCKER IMAGE
-        // =========================================================
+        // ============================================================
 
         stage('Build Docker Image') {
+
             steps {
+
                 sh '''
                     echo "======================================"
                     echo "Building Docker Image"
@@ -70,22 +59,22 @@ pipeline {
                     docker build \
                         --platform linux/amd64 \
                         -t myapp:build-${BUILD_NUMBER} .
-
-                    echo "Docker image created:"
-                    docker images myapp
                 '''
             }
         }
 
-        // =========================================================
+
+        // ============================================================
         // 2. RUN APPLICATION LOCALLY
-        // =========================================================
+        // ============================================================
 
         stage('Run Application') {
+
             steps {
+
                 sh '''
                     echo "======================================"
-                    echo "Running Application"
+                    echo "Running Application Locally"
                     echo "======================================"
 
                     docker rm -f myapp-jenkins-test 2>/dev/null || true
@@ -98,46 +87,46 @@ pipeline {
                         myapp:build-${BUILD_NUMBER}
 
                     echo "Application container started."
-
-                    docker ps
                 '''
             }
         }
 
-        // =========================================================
+
+        // ============================================================
         // 3. TEST APPLICATION LOCALLY
-        // =========================================================
+        // ============================================================
 
         stage('Test Application') {
+
             steps {
+
                 sh '''
                     echo "======================================"
-                    echo "Testing Application"
+                    echo "Testing Application Locally"
                     echo "======================================"
+
+                    echo "Testing /health endpoint..."
 
                     docker run --rm \
                         --platform linux/amd64 \
                         --network devops-net \
                         python:3.12-slim \
-                        python3 -c "
-import urllib.request
-response = urllib.request.urlopen(
-    'http://myapp-jenkins-test:8080/health'
-)
-print(response.read().decode())
-"
+                        python3 -c "import urllib.request; print(urllib.request.urlopen('http://myapp-jenkins-test:8080/health').read().decode())"
 
                     echo "Local application test successful."
                 '''
             }
         }
 
-        // =========================================================
+
+        // ============================================================
         // 4. TEST AWS AUTHENTICATION
-        // =========================================================
+        // ============================================================
 
         stage('Test AWS Authentication') {
+
             steps {
+
                 withCredentials([
                     usernamePassword(
                         credentialsId: 'jenkins-ecr-aws',
@@ -145,25 +134,27 @@ print(response.read().decode())
                         passwordVariable: 'AWS_SECRET_ACCESS_KEY'
                     )
                 ]) {
+
                     sh '''
                         echo "======================================"
                         echo "Testing AWS Authentication"
                         echo "======================================"
 
                         aws sts get-caller-identity
-
-                        echo "AWS authentication successful."
                     '''
                 }
             }
         }
 
-        // =========================================================
+
+        // ============================================================
         // 5. LOGIN TO ECR
-        // =========================================================
+        // ============================================================
 
         stage('Login to ECR') {
+
             steps {
+
                 withCredentials([
                     usernamePassword(
                         credentialsId: 'jenkins-ecr-aws',
@@ -171,6 +162,7 @@ print(response.read().decode())
                         passwordVariable: 'AWS_SECRET_ACCESS_KEY'
                     )
                 ]) {
+
                     sh '''
                         echo "======================================"
                         echo "Logging in to ECR"
@@ -188,12 +180,15 @@ print(response.read().decode())
             }
         }
 
-        // =========================================================
+
+        // ============================================================
         // 6. PUSH IMAGE TO ECR
-        // =========================================================
+        // ============================================================
 
         stage('Push Image to ECR') {
+
             steps {
+
                 withCredentials([
                     usernamePassword(
                         credentialsId: 'jenkins-ecr-aws',
@@ -201,6 +196,7 @@ print(response.read().decode())
                         passwordVariable: 'AWS_SECRET_ACCESS_KEY'
                     )
                 ]) {
+
                     sh '''
                         echo "======================================"
                         echo "Pushing Image to ECR"
@@ -212,22 +208,22 @@ print(response.read().decode())
 
                         docker push ${IMAGE_URI}
 
-                        echo "======================================"
-                        echo "Image pushed successfully"
-                        echo "======================================"
-
+                        echo "Image pushed:"
                         echo "${IMAGE_URI}"
                     '''
                 }
             }
         }
 
-        // =========================================================
+
+        // ============================================================
         // 7. PREPARE ECS TASK DEFINITION
-        // =========================================================
+        // ============================================================
 
         stage('Prepare ECS Task Definition') {
+
             steps {
+
                 withCredentials([
                     usernamePassword(
                         credentialsId: 'jenkins-ecr-aws',
@@ -235,6 +231,7 @@ print(response.read().decode())
                         passwordVariable: 'AWS_SECRET_ACCESS_KEY'
                     )
                 ]) {
+
                     sh '''
                         echo "======================================"
                         echo "Preparing ECS Task Definition"
@@ -293,51 +290,34 @@ print(response.read().decode())
                         echo "New task definition prepared."
 
                         echo "--------------------------------------"
-                        echo "Container Image:"
-                        echo "--------------------------------------"
-
-                        jq -r \
-                            '.containerDefinitions[]
-                            | select(.name == "myapp")
-                            | .image' \
-                            new-task-definition.json
+                        echo "Image:"
+                        jq -r '.containerDefinitions[] | select(.name == "myapp") | .image' new-task-definition.json
 
                         echo "--------------------------------------"
                         echo "Task Role:"
-                        echo "--------------------------------------"
-
-                        jq -r \
-                            '.taskRoleArn' \
-                            new-task-definition.json
+                        jq -r '.taskRoleArn' new-task-definition.json
 
                         echo "--------------------------------------"
                         echo "Execution Role:"
-                        echo "--------------------------------------"
-
-                        jq -r \
-                            '.executionRoleArn' \
-                            new-task-definition.json
+                        jq -r '.executionRoleArn' new-task-definition.json
 
                         echo "--------------------------------------"
                         echo "Database Configuration:"
-                        echo "--------------------------------------"
-
-                        jq -r \
-                            '.containerDefinitions[]
-                            | select(.name == "myapp")
-                            | .environment' \
-                            new-task-definition.json
+                        jq -r '.containerDefinitions[] | select(.name == "myapp") | .environment' new-task-definition.json
                     '''
                 }
             }
         }
 
-        // =========================================================
-        // 8. REGISTER ECS TASK DEFINITION
-        // =========================================================
+
+        // ============================================================
+        // 8. REGISTER NEW ECS TASK DEFINITION
+        // ============================================================
 
         stage('Register ECS Task Definition') {
+
             steps {
+
                 withCredentials([
                     usernamePassword(
                         credentialsId: 'jenkins-ecr-aws',
@@ -345,6 +325,7 @@ print(response.read().decode())
                         passwordVariable: 'AWS_SECRET_ACCESS_KEY'
                     )
                 ]) {
+
                     sh '''
                         echo "======================================"
                         echo "Registering ECS Task Definition"
@@ -356,22 +337,24 @@ print(response.read().decode())
                             --query 'taskDefinition.taskDefinitionArn' \
                             --output text)
 
-                        echo "Registered task definition:"
+                        echo "Registered:"
                         echo "${NEW_TASK_DEFINITION}"
 
-                        echo "${NEW_TASK_DEFINITION}" \
-                            > new-task-definition-arn.txt
+                        echo "${NEW_TASK_DEFINITION}" > new-task-definition-arn.txt
                     '''
                 }
             }
         }
 
-        // =========================================================
+
+        // ============================================================
         // 9. DEPLOY TO ECS
-        // =========================================================
+        // ============================================================
 
         stage('Deploy to ECS') {
+
             steps {
+
                 withCredentials([
                     usernamePassword(
                         credentialsId: 'jenkins-ecr-aws',
@@ -379,6 +362,7 @@ print(response.read().decode())
                         passwordVariable: 'AWS_SECRET_ACCESS_KEY'
                     )
                 ]) {
+
                     sh '''
                         echo "======================================"
                         echo "Deploying to ECS"
@@ -393,9 +377,7 @@ print(response.read().decode())
                             --enable-execute-command \
                             --region ${AWS_REGION}
 
-                        echo "======================================"
-                        echo "ECS deployment triggered"
-                        echo "======================================"
+                        echo "ECS deployment triggered."
 
                         echo "Task Definition:"
                         echo "${NEW_TASK_DEFINITION}"
@@ -404,12 +386,15 @@ print(response.read().decode())
             }
         }
 
-        // =========================================================
+
+        // ============================================================
         // 10. WAIT FOR ECS DEPLOYMENT
-        // =========================================================
+        // ============================================================
 
         stage('Wait for ECS Deployment') {
+
             steps {
+
                 withCredentials([
                     usernamePassword(
                         credentialsId: 'jenkins-ecr-aws',
@@ -417,6 +402,7 @@ print(response.read().decode())
                         passwordVariable: 'AWS_SECRET_ACCESS_KEY'
                     )
                 ]) {
+
                     sh '''
                         echo "======================================"
                         echo "Waiting for ECS Deployment"
@@ -433,12 +419,15 @@ print(response.read().decode())
             }
         }
 
-        // =========================================================
-        // 11. VERIFY ECS DEPLOYMENT
-        // =========================================================
+
+        // ============================================================
+        // 11. VERIFY ECS SERVICE
+        // ============================================================
 
         stage('Verify ECS Deployment') {
+
             steps {
+
                 withCredentials([
                     usernamePassword(
                         credentialsId: 'jenkins-ecr-aws',
@@ -446,6 +435,7 @@ print(response.read().decode())
                         passwordVariable: 'AWS_SECRET_ACCESS_KEY'
                     )
                 ]) {
+
                     sh '''
                         echo "======================================"
                         echo "Verifying ECS Deployment"
@@ -455,26 +445,45 @@ print(response.read().decode())
                             --cluster ${ECS_CLUSTER} \
                             --services ${ECS_SERVICE} \
                             --region ${AWS_REGION} \
-                            --query 'services[0].{
-                                Status:status,
-                                Desired:desiredCount,
-                                Running:runningCount,
-                                Pending:pendingCount,
-                                TaskDefinition:taskDefinition,
-                                ExecuteCommand:enableExecuteCommand
-                            }' \
+                            --query 'services[0].{Status:status,Desired:desiredCount,Running:runningCount,Pending:pendingCount,TaskDefinition:taskDefinition,ExecuteCommand:enableExecuteCommand}' \
                             --output table
+
+                        DESIRED=$(aws ecs describe-services \
+                            --cluster ${ECS_CLUSTER} \
+                            --services ${ECS_SERVICE} \
+                            --region ${AWS_REGION} \
+                            --query 'services[0].desiredCount' \
+                            --output text)
+
+                        RUNNING=$(aws ecs describe-services \
+                            --cluster ${ECS_CLUSTER} \
+                            --services ${ECS_SERVICE} \
+                            --region ${AWS_REGION} \
+                            --query 'services[0].runningCount' \
+                            --output text)
+
+                        if [ "$DESIRED" -ne "$RUNNING" ]; then
+                            echo "ECS service is NOT healthy."
+                            echo "Desired: $DESIRED"
+                            echo "Running: $RUNNING"
+                            exit 1
+                        fi
+
+                        echo "ECS service is healthy."
                     '''
                 }
             }
         }
 
-        // =========================================================
-        // 12. GET ALB DNS
-        // =========================================================
 
-        stage('Get ALB DNS') {
+        // ============================================================
+        // 12. CHECK ALB TARGET HEALTH
+        // ============================================================
+
+        stage('Check ALB Target Health') {
+
             steps {
+
                 withCredentials([
                     usernamePassword(
                         credentialsId: 'jenkins-ecr-aws',
@@ -482,37 +491,7 @@ print(response.read().decode())
                         passwordVariable: 'AWS_SECRET_ACCESS_KEY'
                     )
                 ]) {
-                    script {
-                        env.ALB_DNS = sh(
-                            script: '''
-                                aws elbv2 describe-load-balancers \
-                                    --names ${ALB_NAME} \
-                                    --region ${AWS_REGION} \
-                                    --query 'LoadBalancers[0].DNSName' \
-                                    --output text
-                            ''',
-                            returnStdout: true
-                        ).trim()
 
-                        echo "ALB DNS: ${env.ALB_DNS}"
-                    }
-                }
-            }
-        }
-
-        // =========================================================
-        // 13. VERIFY ALB TARGET HEALTH
-        // =========================================================
-
-        stage('Verify ALB Target Health') {
-            steps {
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: 'jenkins-ecr-aws',
-                        usernameVariable: 'AWS_ACCESS_KEY_ID',
-                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                    )
-                ]) {
                     sh '''
                         echo "======================================"
                         echo "Checking ALB Target Health"
@@ -529,142 +508,215 @@ print(response.read().decode())
                         echo "${TARGET_GROUP_ARN}"
 
                         echo "--------------------------------------"
-                        echo "Target Health:"
+                        echo "Waiting for at least one healthy target..."
                         echo "--------------------------------------"
 
-                        aws elbv2 describe-target-health \
-                            --target-group-arn ${TARGET_GROUP_ARN} \
-                            --region ${AWS_REGION} \
-                            --output table
+                        HEALTHY=false
 
-                        TARGET_STATE=$(aws elbv2 describe-target-health \
-                            --target-group-arn ${TARGET_GROUP_ARN} \
-                            --region ${AWS_REGION} \
-                            --query 'TargetHealthDescriptions[0].TargetHealth.State' \
-                            --output text)
+                        for i in $(seq 1 30)
+                        do
 
-                        echo "Target State:"
-                        echo "${TARGET_STATE}"
+                            echo "Health check attempt $i/30"
 
-                        if [ "${TARGET_STATE}" != "healthy" ]; then
-                            echo "ALB target is NOT healthy."
+                            aws elbv2 describe-target-health \
+                                --target-group-arn ${TARGET_GROUP_ARN} \
+                                --region ${AWS_REGION} \
+                                --output table
+
+                            HEALTHY_COUNT=$(aws elbv2 describe-target-health \
+                                --target-group-arn ${TARGET_GROUP_ARN} \
+                                --region ${AWS_REGION} \
+                                --query 'length(TargetHealthDescriptions[?TargetHealth.State==`healthy`])' \
+                                --output text)
+
+                            echo "Healthy targets: ${HEALTHY_COUNT}"
+
+                            if [ "${HEALTHY_COUNT}" -ge 1 ]; then
+                                HEALTHY=true
+                                break
+                            fi
+
+                            echo "No healthy target yet. Waiting 10 seconds..."
+                            sleep 10
+
+                        done
+
+                        if [ "${HEALTHY}" != "true" ]; then
+
+                            echo "======================================"
+                            echo "ALB TARGET HEALTH CHECK FAILED"
+                            echo "======================================"
+
+                            echo "Final target health:"
+
+                            aws elbv2 describe-target-health \
+                                --target-group-arn ${TARGET_GROUP_ARN} \
+                                --region ${AWS_REGION} \
+                                --output table
+
                             exit 1
                         fi
 
-                        echo "ALB target is healthy."
+                        echo "======================================"
+                        echo "ALB TARGET IS HEALTHY"
+                        echo "======================================"
                     '''
                 }
             }
         }
 
-        // =========================================================
-        // 14. VERIFY APPLICATION THROUGH ALB
-        // =========================================================
 
-        stage('Verify ALB Target Health') {
+        // ============================================================
+        // 13. GET ALB DNS
+        // ============================================================
+
+        stage('Get ALB DNS') {
+
             steps {
+
                 withCredentials([
-            usernamePassword(
-                credentialsId: 'jenkins-ecr-aws',
-                usernameVariable: 'AWS_ACCESS_KEY_ID',
-                passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-            )
-        ]) {
-                    sh '''
-                echo "======================================"
-                echo "Checking ALB Target Health"
-                echo "======================================"
+                    usernamePassword(
+                        credentialsId: 'jenkins-ecr-aws',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
+                ]) {
 
-                TARGET_GROUP_ARN=$(aws ecs describe-services \
-                    --cluster ${ECS_CLUSTER} \
-                    --services ${ECS_SERVICE} \
-                    --region ${AWS_REGION} \
-                    --query 'services[0].loadBalancers[0].targetGroupArn' \
-                    --output text)
+                    script {
 
-                echo "Target Group:"
-                echo "${TARGET_GROUP_ARN}"
+                        env.ALB_DNS = sh(
+                            script: '''
+                                aws elbv2 describe-load-balancers \
+                                    --names ${ALB_NAME} \
+                                    --region ${AWS_REGION} \
+                                    --query 'LoadBalancers[0].DNSName' \
+                                    --output text
+                            ''',
+                            returnStdout: true
+                        ).trim()
 
-                echo "--------------------------------------"
-                echo "Target Health:"
-                echo "--------------------------------------"
-
-                aws elbv2 describe-target-health \
-                    --target-group-arn ${TARGET_GROUP_ARN} \
-                    --region ${AWS_REGION} \
-                    --output table
-
-                echo "--------------------------------------"
-                echo "Checking for healthy target"
-                echo "--------------------------------------"
-
-                HEALTHY_TARGETS=$(aws elbv2 describe-target-health \
-                    --target-group-arn ${TARGET_GROUP_ARN} \
-                    --region ${AWS_REGION} \
-                    --query 'length(TargetHealthDescriptions[?TargetHealth.State==`healthy`])' \
-                    --output text)
-
-                echo "Healthy targets:"
-                echo "${HEALTHY_TARGETS}"
-
-                if [ "${HEALTHY_TARGETS}" -lt 1 ]; then
-
-                    echo "ALB target is NOT healthy."
-
-                    exit 1
-
-                fi
-
-                echo "--------------------------------------"
-                echo "ALB TARGET HEALTHY"
-                echo "--------------------------------------"
-
-                echo "At least one active ECS target is healthy."
-            '''
+                        echo "ALB DNS:"
+                        echo "${env.ALB_DNS}"
+                    }
+                }
+            }
         }
+
+
+        // ============================================================
+        // 14. VERIFY APPLICATION THROUGH ALB
+        // ============================================================
+
+        stage('Verify Application through ALB') {
+
+            steps {
+
+                sh '''
+                    echo "======================================"
+                    echo "Verifying Application through ALB"
+                    echo "======================================"
+
+                    echo "ALB:"
+                    echo "http://${ALB_DNS}"
+
+                    echo "--------------------------------------"
+                    echo "Testing /health"
+                    echo "--------------------------------------"
+
+                    HEALTH_RESPONSE=$(curl -s \
+                        --max-time 10 \
+                        "http://${ALB_DNS}${HEALTH_PATH}")
+
+                    echo "Health Response:"
+                    echo "${HEALTH_RESPONSE}"
+
+                    if [ "${HEALTH_RESPONSE}" != "OK" ]; then
+
+                        echo "ALB health endpoint FAILED."
+
+                        exit 1
+                    fi
+
+                    echo "ALB health endpoint successful."
+
+                    echo "--------------------------------------"
+                    echo "Testing application"
+                    echo "--------------------------------------"
+
+                    APP_RESPONSE=$(curl -s \
+                        --max-time 10 \
+                        "http://${ALB_DNS}/")
+
+                    echo "Application Response:"
+                    echo "${APP_RESPONSE}"
+
+                    if echo "${APP_RESPONSE}" | grep -q "Application is running"; then
+
+                        echo "Application verification successful."
+
+                    else
+
+                        echo "Application verification FAILED."
+
+                        exit 1
+                    fi
+                '''
+            }
+        }
+
+
+        // ============================================================
+        // 15. FINAL DEPLOYMENT SUMMARY
+        // ============================================================
+
+        stage('Deployment Summary') {
+
+            steps {
+
+                echo "======================================"
+                echo "DEPLOYMENT SUCCESSFUL"
+                echo "======================================"
+
+                echo "Build Number: ${BUILD_NUMBER}"
+                echo "Docker Image: ${IMAGE_URI}"
+                echo "ECS Cluster: ${ECS_CLUSTER}"
+                echo "ECS Service: ${ECS_SERVICE}"
+                echo "ALB DNS: http://${ALB_DNS}"
+                echo "Health URL: http://${ALB_DNS}${HEALTH_PATH}"
             }
         }
     }
 
-    // =========================================================
+
+    // ================================================================
     // POST ACTIONS
-    // =========================================================
+    // ================================================================
 
     post {
+
         success {
-            echo '======================================'
-            echo 'PIPELINE SUCCESS'
-            echo '======================================'
 
-            echo 'Application successfully deployed.'
+            echo "======================================"
+            echo "PIPELINE SUCCESS"
+            echo "======================================"
 
-            echo 'ECR Image:'
-            echo "${IMAGE_URI}"
-
-            echo 'ECS Cluster:'
-            echo "${ECS_CLUSTER}"
-
-            echo 'ECS Service:'
-            echo "${ECS_SERVICE}"
-
-            echo 'ALB:'
-            echo "http://${ALB_DNS}"
+            echo "Application successfully built, tested,"
+            echo "pushed to ECR, deployed to ECS,"
+            echo "validated through ALB and verified."
         }
 
         failure {
-            echo '======================================'
-            echo 'PIPELINE FAILED'
-            echo '======================================'
 
-            echo 'Check the failed stage above.'
+            echo "======================================"
+            echo "PIPELINE FAILED"
+            echo "======================================"
+
+            echo "Check the failed stage above."
         }
 
         always {
-            sh '''
-                echo "======================================"
-                echo "Cleaning up Jenkins Docker container"
-                echo "======================================"
 
+            sh '''
                 docker rm -f myapp-jenkins-test 2>/dev/null || true
             '''
         }
